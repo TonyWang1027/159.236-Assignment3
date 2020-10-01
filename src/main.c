@@ -70,18 +70,18 @@ void init_menuSelectionBox()
     menuSelectionBox.status = 0;
 }
 
-void stime()
+void set_current_time()
 {
     struct tm *local;
     time_t t;
     t = time(NULL);
     local = localtime(&t);
 
-    my_clock.hour = local->tm_hour;
-    my_clock.minute = local->tm_min;
-    my_clock.second = local->tm_sec;
+    my_clock.hour = 0;
+    my_clock.minute = 0;
+    my_clock.second = 0;
 
-    printf("%02d:%02d:%02d\n", my_clock.hour, my_clock.minute, my_clock.second);
+    // printf("%02d:%02d:%02d\n", local->tm_hour, local->tm_min, local->tm_sec);
 }
 
 void menuStatusChange()
@@ -98,9 +98,28 @@ void menuStatusChange()
     }
 }
 
+void increamentTime()
+{
+    my_clock.second++;
+    if(my_clock.second == 60)
+    {
+        my_clock.minute++;
+        my_clock.second = 0;
+    }
+    if(my_clock.minute == 60)
+    {
+        my_clock.hour++;
+        my_clock.minute = 0;
+    }
+    if(my_clock.hour == 24)
+    {
+        my_clock.hour = 0;
+    }
+}
+
 void main_screen()
 {
-    stime();
+    set_current_time();
     init_menuSelectionBox();
 
     /* Variable Declaration */
@@ -157,6 +176,7 @@ void main_screen()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
+            increamentTime();
         }
     }
     
