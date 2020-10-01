@@ -1,3 +1,5 @@
 # 159.236-Assignment3
 ### Description
-Make a simple alarm clock for the TTGO T-Display Board (or the emulator). The alarm clock should run in landscape mode and should display the current time as hours, minutes and seconds + am/pm in any format and layout you like. There must be a menu displayed with at least 2 items, to allow the time to be set and an alarm time to be set. Use the bottom button to cycle through highlighting menu items and the top button to select an item. To set the time, use the bottom button to cycle through highlighting the digits in the hours and minutes and an OK option. Use the top button to increment the selected number or select OK to set the time. Use the same method to allow an alarm to be set. When an alarm goes off, the screen must flash between red and green every 300ms and a GPIO output must be set to 1 until one of the buttons is pressed. If you are using a real board you can use wifi to set the time from an ntp server using the code in the demo. Use the same graphics library as assignment 2.
+A simple alarm clock, have a set current time function and set alarm time function.
+
+When alarm goes off, the screen will flash between red and green. User need to press top button or bottom button to go back to normal status.
