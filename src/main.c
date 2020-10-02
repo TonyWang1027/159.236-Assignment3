@@ -20,6 +20,7 @@ struct Clock
     int hour;
     int minute;
     int second;
+    uint8_t isAm;
 };
 
 struct MenuSelectionBox
@@ -31,7 +32,8 @@ struct MenuSelectionBox
     int status;
 };
 
-struct Clock my_clock;
+struct Clock myClock;
+struct Clock myAlarmClock;
 struct MenuSelectionBox menuSelectionBox;
 
 QueueHandle_t inputQueue;
@@ -70,16 +72,17 @@ void init_menuSelectionBox()
     menuSelectionBox.status = 0;
 }
 
-void set_current_time()
+void setTime()
 {
-    struct tm *local;
-    time_t t;
-    t = time(NULL);
-    local = localtime(&t);
+    // struct tm *local;
+    // time_t t;
+    // t = time(NULL);
+    // local = localtime(&t);
 
-    my_clock.hour = 0;
-    my_clock.minute = 0;
-    my_clock.second = 0;
+    myClock.hour = myAlarmClock.hour = 0;
+    myClock.minute = myAlarmClock.minute = 0;
+    myClock.second = myAlarmClock.second = 0;
+    myClock.isAm = myAlarmClock.isAm = 1;
 
     // printf("%02d:%02d:%02d\n", local->tm_hour, local->tm_min, local->tm_sec);
 }
@@ -88,38 +91,66 @@ void menuStatusChange()
 {
     if(menuSelectionBox.x_pos == 10)
     {
+        // Move to right option
         menuSelectionBox.x_pos = 125;
         menuSelectionBox.status = 2;
     }
     else
     {
+        // Move to left option
         menuSelectionBox.x_pos = 10;
         menuSelectionBox.status = 1;
     }
 }
 
-void increamentTime()
+void incrementTime()
 {
-    my_clock.second++;
-    if(my_clock.second == 60)
+    myClock.second++;
+}
+
+void clockLogic()
+{
+    if(myClock.second == 60)
     {
-        my_clock.minute++;
-        my_clock.second = 0;
+        myClock.minute++;
+        myClock.second = 0;
     }
-    if(my_clock.minute == 60)
+    if(myClock.minute == 60)
     {
-        my_clock.hour++;
-        my_clock.minute = 0;
+        myClock.hour++;
+        myClock.minute = 0;
     }
-    if(my_clock.hour == 24)
+    if(myClock.hour == 12 && myClock.minute == 0 && myClock.second == 0 && myClock.isAm == 1)  // 12:00:00am
     {
-        my_clock.hour = 0;
+        myClock.isAm = 0;
+    }
+    else if(myClock.hour == 12 && myClock.minute == 0 && myClock.second == 0 && myClock.isAm == 0)  // 12:00:00pm
+    {
+        myClock.isAm = 1;
+        myClock.hour = 0;
+    }
+    else if(myClock.hour == 13 && myClock.minute == 0 && myClock.minute == 0 && myClock.isAm == 0)  // 13:00:00pm
+    {
+        myClock.hour = 1;
+    }
+}
+
+void twelveHourClock()
+{
+    setFont(FONT_UBUNTU16);
+    if(myClock.isAm == 1)
+    {
+        print_xy("AM", 185, 58);
+    }
+    else
+    {
+        print_xy("PM", 185, 58);
     }
 }
 
 void main_screen()
 {
-    set_current_time();
+    setTime();
     init_menuSelectionBox();
 
     /* Variable Declaration */
@@ -137,8 +168,15 @@ void main_screen()
         /* Anything need to draw on the screen should write here 00:00:00*/
         /*** START ***/
         setFont(FONT_DEJAVU24);
-        snprintf(buffer, 20, "%02d:%02d:%02d", my_clock.hour, my_clock.minute, my_clock.second);
+        snprintf(buffer, 20, "%02d:%02d:%02d", myClock.hour, myClock.minute, myClock.second);
         print_xy(buffer, (display_width / 2) - 55, (display_height / 2) - 10);
+        draw_rectangle(0, 14, display_width, 1, rgbToColour(255, 255, 255));
+
+        setFont(FONT_UBUNTU16);
+        print_xy("Alarm Time:", 31, (display_height - 15));
+        snprintf(buffer, 20, "%02d:%02d:%02d", myAlarmClock.hour, myAlarmClock.minute, myAlarmClock.second);
+        print_xy(buffer, 135, (display_height - 15));
+        draw_rectangle(0, (display_height - 17), display_width, 1, rgbToColour(255, 255, 255));
 
         // plus 115 to move right
         draw_rectangle(menuSelectionBox.x_pos, menuSelectionBox.y_pos, menuSelectionBox.weight, menuSelectionBox.height, rgbToColour(0, 172, 13));
@@ -148,6 +186,8 @@ void main_screen()
         print_xy(buffer, 15, 1);
         snprintf(buffer, 20, "Set Alarm Time");
         print_xy(buffer, 135, 1);
+
+        twelveHourClock();
         
         /*** END!!! ***/
 
@@ -157,6 +197,7 @@ void main_screen()
         // bottom(left) button pressed event
         if(gpio_get_level(0) == 0)
         {
+            // this can be active when button is pressed, and only active one time
             if(buttonPressDuration == 0) menuStatusChange();
             if(buttonPressDuration <= 5) buttonPressDuration++;
         }
@@ -176,10 +217,10 @@ void main_screen()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            increamentTime();
+            incrementTime();
+            clockLogic();
         }
     }
-    
 }
 
 void app_main()
