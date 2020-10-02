@@ -14,6 +14,7 @@
 
 #include "fonts.h"
 #include "graphics.h"
+#include "modeOne.h"
 
 struct Clock
 {
@@ -39,6 +40,12 @@ struct MenuSelectionBox menuSelectionBox;
 QueueHandle_t inputQueue;
 uint16_t lastkeytime = 0;
 int buttonPressDuration = 0;
+int clockMode = 0;
+// mode: 0 => in main screen
+// mode: 1 => in set current time mode
+// mode: 2 => in set alarm time mode
+
+char buffer[20];
 
 // interrupt handler for button presses on GPIO0 and GPIO35
 static void IRAM_ATTR gpio_isr_handler(void* arg)
@@ -72,7 +79,7 @@ void init_menuSelectionBox()
     menuSelectionBox.status = 0;
 }
 
-void setTime()
+void initTime()
 {
     // struct tm *local;
     // time_t t;
@@ -93,13 +100,13 @@ void menuStatusChange()
     {
         // Move to right option
         menuSelectionBox.x_pos = 125;
-        menuSelectionBox.status = 2;
+        menuSelectionBox.status = 1;
     }
     else
     {
         // Move to left option
         menuSelectionBox.x_pos = 10;
-        menuSelectionBox.status = 1;
+        menuSelectionBox.status = 0;
     }
 }
 
@@ -148,18 +155,56 @@ void twelveHourClock()
     }
 }
 
+void showCurrentTime()
+{
+    setFont(FONT_DEJAVU24);
+    snprintf(buffer, 20, "%02d:%02d:%02d", myClock.hour, myClock.minute, myClock.second);
+    print_xy(buffer, (display_width / 2) - 55, (display_height / 2) - 10);
+
+    twelveHourClock();
+}
+
+void showAlarmTime()
+{
+    setFont(FONT_UBUNTU16);
+    print_xy("Alarm Time:", 40, (display_height - 15));
+    snprintf(buffer, 20, "%02d:%02d", myAlarmClock.hour, myAlarmClock.minute);
+    print_xy(buffer, 142, (display_height - 15));
+
+    // Bottom separate line
+    draw_rectangle(0, (display_height - 17), display_width, 1, rgbToColour(255, 255, 255));
+}
+
+void showMenu()
+{
+    draw_rectangle(menuSelectionBox.x_pos, menuSelectionBox.y_pos, menuSelectionBox.weight, menuSelectionBox.height, rgbToColour(0, 172, 13));
+
+    setFont(FONT_SMALL);
+    snprintf(buffer, 20, "Set Current Time");
+    print_xy(buffer, 15, 1);
+    snprintf(buffer, 20, "Set Alarm Time");
+    print_xy(buffer, 135, 1);
+
+    // Top separate line
+    draw_rectangle(0, 14, display_width, 1, rgbToColour(255, 255, 255));
+}
+
+void setCurrentTimeMode()
+{
+    // Not implement yet!
+
+}
+
 void main_screen()
 {
-    setTime();
+    initTime();
     init_menuSelectionBox();
 
     /* Variable Declaration */
     int64_t current_time = 0;
     int64_t last_time = 0;
 
-    char buffer[20];
-
-    while (true)
+    while (1)
     {
         last_time = esp_timer_get_time() / (int64_t) 1000000;
         cls(rgbToColour(0, 0, 0));
@@ -167,27 +212,9 @@ void main_screen()
 
         /* Anything need to draw on the screen should write here 00:00:00*/
         /*** START ***/
-        setFont(FONT_DEJAVU24);
-        snprintf(buffer, 20, "%02d:%02d:%02d", myClock.hour, myClock.minute, myClock.second);
-        print_xy(buffer, (display_width / 2) - 55, (display_height / 2) - 10);
-        draw_rectangle(0, 14, display_width, 1, rgbToColour(255, 255, 255));
-
-        setFont(FONT_UBUNTU16);
-        print_xy("Alarm Time:", 31, (display_height - 15));
-        snprintf(buffer, 20, "%02d:%02d:%02d", myAlarmClock.hour, myAlarmClock.minute, myAlarmClock.second);
-        print_xy(buffer, 135, (display_height - 15));
-        draw_rectangle(0, (display_height - 17), display_width, 1, rgbToColour(255, 255, 255));
-
-        // plus 115 to move right
-        draw_rectangle(menuSelectionBox.x_pos, menuSelectionBox.y_pos, menuSelectionBox.weight, menuSelectionBox.height, rgbToColour(0, 172, 13));
-
-        setFont(FONT_SMALL);
-        snprintf(buffer, 20, "Set Current Time");
-        print_xy(buffer, 15, 1);
-        snprintf(buffer, 20, "Set Alarm Time");
-        print_xy(buffer, 135, 1);
-
-        twelveHourClock();
+        showCurrentTime();
+        showAlarmTime();
+        showMenu();
         
         /*** END!!! ***/
 
@@ -197,7 +224,7 @@ void main_screen()
         // bottom(left) button pressed event
         if(gpio_get_level(0) == 0)
         {
-            // this can be active when button is pressed, and only active one time
+            // this can be active when button is pressed, and only active once
             if(buttonPressDuration == 0) menuStatusChange();
             if(buttonPressDuration <= 5) buttonPressDuration++;
         }
@@ -209,6 +236,16 @@ void main_screen()
         // top(right) button pressed event
         if(gpio_get_level(35) == 0)
         {
+            if(menuSelectionBox.status == 0)  // set current time mode
+            {
+                printf("Left Box\n");
+                clockMode = 1;
+                setCurrentTimeMode();
+            }
+            else  // set alarm time mode
+            {
+                printf("Right Box\n");
+            }
             
         }
         
@@ -217,7 +254,7 @@ void main_screen()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            incrementTime();
+            if(clockMode == 0) incrementTime();
             clockLogic();
         }
     }
