@@ -206,16 +206,17 @@ void setCurrentTimeMode()
 {
     init_digitSelectionBox();
 
-    int8_t flashing = 0;
+    int8_t flashing = 1;
     int64_t current_time = 0;
     int64_t last_time = 0;
 
-    int bottomButtonPressDuration = 0;
-    int topButtonPressDuration = 0;
+    int bottomButtonPressDuration = 20;
+    int topButtonPressDuration = 20;
+    int selectedOK = 0;
 
     myClock.second = 0;
 
-    vTaskDelay(10);
+    // vTaskDelay(20);
 
     while (1)
     {
@@ -227,9 +228,13 @@ void setCurrentTimeMode()
         /*** START ***/
         digitSelectionBox.x_pos = digitPosition[digitSelectionBox.status];
 
-        if(flashing == 0)
+        if(flashing == 1 && selectedOK == 0)
         {
             draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
+        }
+        if(flashing == 1 && selectedOK == 1)
+        {
+            draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
         }
         showCurrentTime();
 
@@ -247,33 +252,42 @@ void setCurrentTimeMode()
         {
             if(bottomButtonPressDuration == 0)
             {
-                if(digitSelectionBox.status == 0)
+                if(selectedOK == 0)
                 {
-                    myClock.hour++;
-                    if(myClock.hour == 12 && myClock.isAm == 1)
+                    // When selected digit
+                    if(digitSelectionBox.status == 0)
                     {
-                        myClock.isAm = 0;
-                    }
-                    else if(myClock.hour == 12 && myClock.isAm == 0)
-                    {
-                        myClock.isAm = 1;
-                        myClock.hour = 0;
-                    }
-                    else if(myClock.hour == 13)
-                    {
-                        myClock.hour = 1;
-                    }                   
-                }
-                else
-                {
-                    if(myClock.minute == 59)
-                    {
-                        myClock.minute = 0;
+                        myClock.hour++;
+                        if(myClock.hour == 12 && myClock.isAm == 1)
+                        {
+                            myClock.isAm = 0;
+                        }
+                        else if(myClock.hour == 12 && myClock.isAm == 0)
+                        {
+                            myClock.isAm = 1;
+                            myClock.hour = 0;
+                        }
+                        else if(myClock.hour == 13)
+                        {
+                            myClock.hour = 1;
+                        }                   
                     }
                     else
                     {
-                        myClock.minute++;
+                        if(myClock.minute == 59)
+                        {
+                            myClock.minute = 0;
+                        }
+                        else
+                        {
+                            myClock.minute++;
+                        }
                     }
+                }
+                else
+                {
+                    // When selected "OK"
+                    return;
                 }
             }
             if(bottomButtonPressDuration <= 5) bottomButtonPressDuration++;
@@ -288,13 +302,25 @@ void setCurrentTimeMode()
         {
             if(topButtonPressDuration == 0)
             {
-                if(digitSelectionBox.status < 1)
+                if(digitSelectionBox.status == 0)
                 {
                     digitSelectionBox.status++;
+                    flashing = 0;
                 }
                 else
                 {
-                    digitSelectionBox.status = 0;
+                    if(selectedOK == 0)
+                    {
+                        selectedOK = 1;
+                        flashing = 0;
+                    }
+                    else
+                    {
+                        selectedOK = 0;
+                        digitSelectionBox.status = 0;
+                        flashing = 0;
+                    }
+                    
                 }
             }
             if(topButtonPressDuration <= 5) topButtonPressDuration++;
@@ -366,13 +392,14 @@ void main_screen()
         {
             if(menuSelectionBox.status == 0)  // set current time mode
             {
-                printf("Left Box\n");
-                clockMode = 1;
+                // printf("Left Box\n");
                 setCurrentTimeMode();
+                buttonPressDuration = 10;
+                continue;
             }
             else  // set alarm time mode
             {
-                printf("Right Box\n");
+                // printf("Right Box\n");
             }
             
         }
@@ -382,7 +409,7 @@ void main_screen()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            if(clockMode == 0) incrementTime();
+            incrementTime();
             clockLogic();
         }
     }
