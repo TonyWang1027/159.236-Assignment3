@@ -36,7 +36,7 @@ struct Clock myClock;
 struct Clock myAlarmClock;
 struct SelectionBox menuSelectionBox;
 struct SelectionBox digitSelectionBox;
-int digitPosition[4];
+int digitPosition[2];
 
 QueueHandle_t inputQueue;
 uint16_t lastkeytime = 0;
@@ -98,13 +98,11 @@ void initTime()
 void init_digitSelectionBox()
 {
     digitPosition[0] = 65;
-    digitPosition[1] = 81;
-    digitPosition[2] = 106;
-    digitPosition[3] = 122;
+    digitPosition[1] = 106;
 
     digitSelectionBox.x_pos = digitPosition[0];
     digitSelectionBox.y_pos = 55;
-    digitSelectionBox.weight = 16;
+    digitSelectionBox.weight = 30;
     digitSelectionBox.height = 24;
     digitSelectionBox.status = 0;
 }
@@ -212,7 +210,10 @@ void setCurrentTimeMode()
     int64_t current_time = 0;
     int64_t last_time = 0;
 
-    int digitNumber = 0;
+    int bottomButtonPressDuration = 0;
+    int topButtonPressDuration = 0;
+
+    myClock.second = 0;
 
     vTaskDelay(10);
 
@@ -224,21 +225,18 @@ void setCurrentTimeMode()
 
         /* Anything need to draw on the screen should write here 00:00:00*/
         /*** START ***/
-        digitSelectionBox.x_pos = digitPosition[digitNumber];
+        digitSelectionBox.x_pos = digitPosition[digitSelectionBox.status];
 
         if(flashing == 0)
         {
             draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
         }
         showCurrentTime();
-        // showAlarmTime();
 
         setFont(FONT_UBUNTU16);
         print_xy("Set Current Time Mode", 1, 1);
 
-        print_xy("OK", 205, 115);
-        // showMenu();
-        
+        print_xy("OK", 205, 115);        
         /*** END!!! ***/
 
         send_frame();
@@ -247,44 +245,71 @@ void setCurrentTimeMode()
         // bottom(left) button pressed event
         if(gpio_get_level(0) == 0)
         {
-            // this can be active when button is pressed, and only active once
-            // if(buttonPressDuration == 0)
-            // if(buttonPressDuration <= 5) buttonPressDuration++;
+            if(bottomButtonPressDuration == 0)
+            {
+                if(digitSelectionBox.status == 0)
+                {
+                    myClock.hour++;
+                    if(myClock.hour == 12 && myClock.isAm == 1)
+                    {
+                        myClock.isAm = 0;
+                    }
+                    else if(myClock.hour == 12 && myClock.isAm == 0)
+                    {
+                        myClock.isAm = 1;
+                        myClock.hour = 0;
+                    }
+                    else if(myClock.hour == 13)
+                    {
+                        myClock.hour = 1;
+                    }                   
+                }
+                else
+                {
+                    if(myClock.minute == 59)
+                    {
+                        myClock.minute = 0;
+                    }
+                    else
+                    {
+                        myClock.minute++;
+                    }
+                }
+            }
+            if(bottomButtonPressDuration <= 5) bottomButtonPressDuration++;
         }
         else
         {
-            // if(buttonPressDuration != 0) buttonPressDuration = 0;
+            if(bottomButtonPressDuration != 0) bottomButtonPressDuration = 0;
         }
 
         // top(right) button pressed event
         if(gpio_get_level(35) == 0)
         {
-            if(buttonPressDuration == 0)
+            if(topButtonPressDuration == 0)
             {
-                if(digitNumber < 3)
+                if(digitSelectionBox.status < 1)
                 {
-                    digitNumber++;
+                    digitSelectionBox.status++;
                 }
                 else
                 {
-                    digitNumber = 0;
+                    digitSelectionBox.status = 0;
                 }
             }
-            if(buttonPressDuration <= 5) buttonPressDuration++;
+            if(topButtonPressDuration <= 5) topButtonPressDuration++;
         }
         else
         {
-            if(buttonPressDuration != 0) buttonPressDuration = 0;
+            if(topButtonPressDuration != 0) topButtonPressDuration = 0;
         }
-        
 
         current_time = esp_timer_get_time() / (int64_t) 1000000;
 
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            clockLogic();
-
+            
             if(flashing == 0)
             {
                 flashing = 1;
