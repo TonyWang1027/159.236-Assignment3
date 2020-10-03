@@ -14,7 +14,6 @@
 
 #include "fonts.h"
 #include "graphics.h"
-#include "modeOne.h"
 
 struct Clock
 {
@@ -24,7 +23,7 @@ struct Clock
     uint8_t isAm;
 };
 
-struct MenuSelectionBox
+struct SelectionBox
 {
     int x_pos;
     int y_pos;
@@ -35,7 +34,9 @@ struct MenuSelectionBox
 
 struct Clock myClock;
 struct Clock myAlarmClock;
-struct MenuSelectionBox menuSelectionBox;
+struct SelectionBox menuSelectionBox;
+struct SelectionBox digitSelectionBox;
+int digitPosition[4];
 
 QueueHandle_t inputQueue;
 uint16_t lastkeytime = 0;
@@ -92,6 +93,20 @@ void initTime()
     myClock.isAm = myAlarmClock.isAm = 1;
 
     // printf("%02d:%02d:%02d\n", local->tm_hour, local->tm_min, local->tm_sec);
+}
+
+void init_digitSelectionBox()
+{
+    digitPosition[0] = 65;
+    digitPosition[1] = 81;
+    digitPosition[2] = 106;
+    digitPosition[3] = 122;
+
+    digitSelectionBox.x_pos = digitPosition[0];
+    digitSelectionBox.y_pos = 55;
+    digitSelectionBox.weight = 16;
+    digitSelectionBox.height = 24;
+    digitSelectionBox.status = 0;
 }
 
 void menuStatusChange()
@@ -191,8 +206,96 @@ void showMenu()
 
 void setCurrentTimeMode()
 {
-    // Not implement yet!
+    init_digitSelectionBox();
 
+    int8_t flashing = 0;
+    int64_t current_time = 0;
+    int64_t last_time = 0;
+
+    int digitNumber = 0;
+
+    vTaskDelay(10);
+
+    while (1)
+    {
+        last_time = esp_timer_get_time() / (int64_t) 1000000;
+        cls(rgbToColour(0, 0, 0));
+        setFontColour(255, 255, 255);
+
+        /* Anything need to draw on the screen should write here 00:00:00*/
+        /*** START ***/
+        digitSelectionBox.x_pos = digitPosition[digitNumber];
+
+        if(flashing == 0)
+        {
+            draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
+        }
+        showCurrentTime();
+        // showAlarmTime();
+
+        setFont(FONT_UBUNTU16);
+        print_xy("Set Current Time Mode", 1, 1);
+
+        print_xy("OK", 205, 115);
+        // showMenu();
+        
+        /*** END!!! ***/
+
+        send_frame();
+        wait_frame();
+
+        // bottom(left) button pressed event
+        if(gpio_get_level(0) == 0)
+        {
+            // this can be active when button is pressed, and only active once
+            // if(buttonPressDuration == 0)
+            // if(buttonPressDuration <= 5) buttonPressDuration++;
+        }
+        else
+        {
+            // if(buttonPressDuration != 0) buttonPressDuration = 0;
+        }
+
+        // top(right) button pressed event
+        if(gpio_get_level(35) == 0)
+        {
+            if(buttonPressDuration == 0)
+            {
+                if(digitNumber < 3)
+                {
+                    digitNumber++;
+                }
+                else
+                {
+                    digitNumber = 0;
+                }
+            }
+            if(buttonPressDuration <= 5) buttonPressDuration++;
+        }
+        else
+        {
+            if(buttonPressDuration != 0) buttonPressDuration = 0;
+        }
+        
+
+        current_time = esp_timer_get_time() / (int64_t) 1000000;
+
+        if(current_time != last_time)
+        {
+            // printf("current time: %lld\n", current_time);
+            clockLogic();
+
+            if(flashing == 0)
+            {
+                flashing = 1;
+            }
+            else
+            {
+                flashing = 0;
+            }
+        }
+    }
+    
 }
 
 void main_screen()
