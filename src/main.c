@@ -40,11 +40,6 @@ int digitPosition[2];
 
 QueueHandle_t inputQueue;
 uint16_t lastkeytime = 0;
-int buttonPressDuration = 0;
-int clockMode = 0;
-// mode: 0 => in main screen
-// mode: 1 => in set current time mode
-// mode: 2 => in set alarm time mode
 
 char buffer[20];
 
@@ -95,10 +90,22 @@ void initTime()
     // printf("%02d:%02d:%02d\n", local->tm_hour, local->tm_min, local->tm_sec);
 }
 
-void init_digitSelectionBox()
+void init_digitSelectionBox_Clock()
 {
     digitPosition[0] = 65;
     digitPosition[1] = 106;
+
+    digitSelectionBox.x_pos = digitPosition[0];
+    digitSelectionBox.y_pos = 55;
+    digitSelectionBox.weight = 30;
+    digitSelectionBox.height = 24;
+    digitSelectionBox.status = 0;
+}
+
+void init_digitSelectionBox_Alarm()
+{
+    digitPosition[0] = 85;
+    digitPosition[1] = 127;
 
     digitSelectionBox.x_pos = digitPosition[0];
     digitSelectionBox.y_pos = 55;
@@ -155,8 +162,12 @@ void clockLogic()
     }
 }
 
-void twelveHourClock()
+void showCurrentTime()
 {
+    setFont(FONT_DEJAVU24);
+    snprintf(buffer, 20, "%02d:%02d:%02d", myClock.hour, myClock.minute, myClock.second);
+    print_xy(buffer, (display_width / 2) - 55, (display_height / 2) - 10);
+
     setFont(FONT_UBUNTU16);
     if(myClock.isAm == 1)
     {
@@ -168,21 +179,22 @@ void twelveHourClock()
     }
 }
 
-void showCurrentTime()
-{
-    setFont(FONT_DEJAVU24);
-    snprintf(buffer, 20, "%02d:%02d:%02d", myClock.hour, myClock.minute, myClock.second);
-    print_xy(buffer, (display_width / 2) - 55, (display_height / 2) - 10);
-
-    twelveHourClock();
-}
-
 void showAlarmTime()
 {
     setFont(FONT_UBUNTU16);
     print_xy("Alarm Time:", 45, (display_height - 15));
     snprintf(buffer, 20, "%02d:%02d", myAlarmClock.hour, myAlarmClock.minute);
     print_xy(buffer, 147, (display_height - 15));
+
+    setFont(FONT_SMALL);
+    if(myAlarmClock.isAm == 1)
+    {
+        print_xy("AM", 195, 124);
+    }
+    else
+    {
+        print_xy("PM", 195, 124);
+    }
 
     // Bottom separate line
     draw_rectangle(0, (display_height - 17), display_width, 1, rgbToColour(255, 255, 255));
@@ -202,7 +214,7 @@ void showMenu()
     draw_rectangle(0, 14, display_width, 1, rgbToColour(255, 255, 255));
 }
 
-void incrementDigits()
+void incrementDigits_Clock()
 {
     if(digitSelectionBox.status == 0)
     {
@@ -237,6 +249,41 @@ void incrementDigits()
     }
 }
 
+void incrementDigits_Alarm()
+{
+    if(digitSelectionBox.status == 0)
+    {
+        myAlarmClock.hour++;
+        if(myAlarmClock.hour == 12 && myAlarmClock.isAm == 1)
+        {
+            // 12:00 am => 12:00pm
+            myAlarmClock.isAm = 0;
+        }
+        else if(myAlarmClock.hour == 12 && myAlarmClock.isAm == 0)
+        {
+            // 12:00pm => 00:00am
+            myAlarmClock.isAm = 1;
+            myAlarmClock.hour = 0;
+        }
+        else if(myAlarmClock.hour == 13)
+        {
+            // When 13:00 is reached, change to 01:00 (NO 13:00pm)
+            myAlarmClock.hour = 1;
+        }                   
+    }
+    else
+    {
+        if(myAlarmClock.minute == 59)
+        {
+            myAlarmClock.minute = 0;
+        }
+        else
+        {
+            myAlarmClock.minute++;
+        }
+    }
+}
+
 void changeBacklightPos(int8_t *selectedOK)
 {
     if(digitSelectionBox.status == 0)
@@ -262,7 +309,7 @@ void changeBacklightPos(int8_t *selectedOK)
 
 void setCurrentTimeMode()
 {
-    init_digitSelectionBox();
+    init_digitSelectionBox_Clock();
 
     /* Variable Declaration */
     int8_t flashing = 1;
@@ -311,7 +358,7 @@ void setCurrentTimeMode()
                 if(selectedOK == 0)
                 {
                     // When selected digit
-                    incrementDigits();
+                    incrementDigits_Clock();
                 }
                 else
                 {
@@ -352,6 +399,114 @@ void setCurrentTimeMode()
     }
 }
 
+void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
+{
+    init_digitSelectionBox_Alarm();
+
+    int8_t flashing = 1;
+
+    int bottomButtonPressDuration = 20;
+    int topButtonPressDuration = 20;
+
+    int8_t selectedOK = 0;
+
+    while (1)
+    {
+        *last_time = esp_timer_get_time() / (int64_t) 1000000;
+        cls(rgbToColour(0, 0, 0));
+        setFontColour(255, 255, 255);
+
+        digitSelectionBox.x_pos = digitPosition[digitSelectionBox.status];  // loop through the hours digit and minute digit
+
+        /* Anything need to draw on the screen should write here */
+        /*** START ***/
+        if(flashing == 1)
+        {
+            // Backlight of hours digit and minutes digit flashing every one second
+            // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable and flashing
+            if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
+            if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
+        }
+        setFont(FONT_DEJAVU24);
+        snprintf(buffer, 20, "%02d:%02d", myAlarmClock.hour, myAlarmClock.minute);
+        print_xy(buffer, (display_width / 2) - 35, (display_height / 2) - 10);
+    
+        setFont(FONT_UBUNTU16);
+        if(myAlarmClock.isAm == 1)
+        {
+            print_xy("AM", 166, 58);
+        }
+        else
+        {
+            print_xy("PM", 166, 58);
+        }
+
+        setFont(FONT_UBUNTU16);
+        print_xy("Set Alarm Time Mode", 1, 1);
+
+        print_xy("OK", 205, 115);  
+
+        /*** END!!! ***/
+
+        send_frame();
+        wait_frame();
+
+        *current_time = esp_timer_get_time() / (int64_t) 1000000;
+
+        // bottom(left) button pressed event
+        if(gpio_get_level(0) == 0)
+        {
+            if(bottomButtonPressDuration == 0)
+            {
+                if(selectedOK == 0)
+                {
+                    // When selected digit
+                    incrementDigits_Alarm();
+                }
+                else
+                {
+                    // When selected "OK" -> return -> go back to main screen
+                    return;
+                }
+
+                bottomButtonPressDuration++;
+            }
+
+        }
+        else
+        {
+            if(bottomButtonPressDuration != 0) bottomButtonPressDuration = 0;
+        }
+        
+
+        // top(right) button pressed event
+        if(gpio_get_level(35) == 0)
+        {
+            if(topButtonPressDuration == 0)
+            {
+                changeBacklightPos(&selectedOK);
+                flashing = 0;
+                topButtonPressDuration++;
+            }           
+        }
+        else
+        {
+            if(topButtonPressDuration != 0) topButtonPressDuration = 0;
+        }
+        
+
+        if((*current_time) != (*last_time))
+        {
+            // printf("current time: %lld\n", current_time);
+            incrementTime();
+            clockLogic();
+            if(flashing == 0) flashing = 1;
+            else flashing = 0;
+        }
+    }
+    
+}
+
 void main_screen()
 {
     initTime();
@@ -361,8 +516,7 @@ void main_screen()
     int64_t current_time = 0;
     int64_t last_time = 0;
 
-    int bottomButtonPressDuration = 0;
-    int topButtonPressDuration = 0;
+    int buttonPressDuration = 0;
 
     while (1)
     {
@@ -381,19 +535,21 @@ void main_screen()
         send_frame();
         wait_frame();
 
+        current_time = esp_timer_get_time() / (int64_t) 1000000;
+
         // bottom(left) button pressed event
         if(gpio_get_level(0) == 0)
         {
             // this can be active when button is pressed, and only active once
-            if(bottomButtonPressDuration == 0) 
+            if(buttonPressDuration == 0) 
             {
                 menuStatusChange();
-                bottomButtonPressDuration++;
+                buttonPressDuration++;
             }
         }
         else
         {
-            if(bottomButtonPressDuration != 0) bottomButtonPressDuration = 0;
+            if(buttonPressDuration != 0) buttonPressDuration = 0;
         }
 
         // top(right) button pressed event
@@ -403,17 +559,16 @@ void main_screen()
             {
                 // set current time mode
                 setCurrentTimeMode();
-                bottomButtonPressDuration = 20;
-                continue;
             }
             else
             {
                 // set alarm time mode
-
+                setAlarmTimeMode(&current_time, &last_time);
             }
+            buttonPressDuration = 20;
+            continue;
         }
-        current_time = esp_timer_get_time() / (int64_t) 1000000;
-
+        
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
