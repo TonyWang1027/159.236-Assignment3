@@ -180,9 +180,9 @@ void showCurrentTime()
 void showAlarmTime()
 {
     setFont(FONT_UBUNTU16);
-    print_xy("Alarm Time:", 40, (display_height - 15));
+    print_xy("Alarm Time:", 45, (display_height - 15));
     snprintf(buffer, 20, "%02d:%02d", myAlarmClock.hour, myAlarmClock.minute);
-    print_xy(buffer, 142, (display_height - 15));
+    print_xy(buffer, 147, (display_height - 15));
 
     // Bottom separate line
     draw_rectangle(0, (display_height - 17), display_width, 1, rgbToColour(255, 255, 255));
@@ -202,21 +202,78 @@ void showMenu()
     draw_rectangle(0, 14, display_width, 1, rgbToColour(255, 255, 255));
 }
 
+void incrementDigits()
+{
+    if(digitSelectionBox.status == 0)
+    {
+        myClock.hour++;
+        if(myClock.hour == 12 && myClock.isAm == 1)
+        {
+            // 12:00 am => 12:00pm
+            myClock.isAm = 0;
+        }
+        else if(myClock.hour == 12 && myClock.isAm == 0)
+        {
+            // 12:00pm => 00:00am
+            myClock.isAm = 1;
+            myClock.hour = 0;
+        }
+        else if(myClock.hour == 13)
+        {
+            // When 13:00 is reached, change to 01:00 (NO 13:00pm)
+            myClock.hour = 1;
+        }                   
+    }
+    else
+    {
+        if(myClock.minute == 59)
+        {
+            myClock.minute = 0;
+        }
+        else
+        {
+            myClock.minute++;
+        }
+    }
+}
+
+void changeBacklightPos(int8_t *selectedOK)
+{
+    if(digitSelectionBox.status == 0)
+    {
+        // if backlight is on the hours digit, move to the minutes digit
+        digitSelectionBox.status++;
+    }
+    else
+    {
+        if(*selectedOK == 0)
+        {
+            // if backlight is not on OK button, then move backlight to the OK button pos
+            *selectedOK = 1;  // enable the backlight
+        }
+        else
+        {
+            // if backlight is on OK button, then move backlight to the hours digit by reset 'digitSelectedBox.status' to 0.
+            *selectedOK = 0;  // disable the backlight
+            digitSelectionBox.status = 0;
+        }
+    }
+}
+
 void setCurrentTimeMode()
 {
     init_digitSelectionBox();
 
+    /* Variable Declaration */
     int8_t flashing = 1;
     int64_t current_time = 0;
     int64_t last_time = 0;
 
     int bottomButtonPressDuration = 20;
     int topButtonPressDuration = 20;
-    int selectedOK = 0;
+    int8_t selectedOK = 0;
 
     myClock.second = 0;
-
-    // vTaskDelay(20);
 
     while (1)
     {
@@ -224,17 +281,16 @@ void setCurrentTimeMode()
         cls(rgbToColour(0, 0, 0));
         setFontColour(255, 255, 255);
 
-        /* Anything need to draw on the screen should write here 00:00:00*/
-        /*** START ***/
-        digitSelectionBox.x_pos = digitPosition[digitSelectionBox.status];
+        digitSelectionBox.x_pos = digitPosition[digitSelectionBox.status];  // loop through the hours digit and minute digit
 
-        if(flashing == 1 && selectedOK == 0)
+        /* Anything need to draw on the screen should write here */
+        /*** START ***/
+        if(flashing == 1)
         {
-            draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
-        }
-        if(flashing == 1 && selectedOK == 1)
-        {
-            draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
+            // Backlight of hours digit and minutes digit flashing every one second
+            // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable and flashing
+            if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
+            if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
         }
         showCurrentTime();
 
@@ -255,42 +311,15 @@ void setCurrentTimeMode()
                 if(selectedOK == 0)
                 {
                     // When selected digit
-                    if(digitSelectionBox.status == 0)
-                    {
-                        myClock.hour++;
-                        if(myClock.hour == 12 && myClock.isAm == 1)
-                        {
-                            myClock.isAm = 0;
-                        }
-                        else if(myClock.hour == 12 && myClock.isAm == 0)
-                        {
-                            myClock.isAm = 1;
-                            myClock.hour = 0;
-                        }
-                        else if(myClock.hour == 13)
-                        {
-                            myClock.hour = 1;
-                        }                   
-                    }
-                    else
-                    {
-                        if(myClock.minute == 59)
-                        {
-                            myClock.minute = 0;
-                        }
-                        else
-                        {
-                            myClock.minute++;
-                        }
-                    }
+                    incrementDigits();
                 }
                 else
                 {
-                    // When selected "OK"
+                    // When selected "OK" -> return -> go back to main screen
                     return;
                 }
+                bottomButtonPressDuration++;
             }
-            if(bottomButtonPressDuration <= 5) bottomButtonPressDuration++;
         }
         else
         {
@@ -302,28 +331,10 @@ void setCurrentTimeMode()
         {
             if(topButtonPressDuration == 0)
             {
-                if(digitSelectionBox.status == 0)
-                {
-                    digitSelectionBox.status++;
-                    flashing = 0;
-                }
-                else
-                {
-                    if(selectedOK == 0)
-                    {
-                        selectedOK = 1;
-                        flashing = 0;
-                    }
-                    else
-                    {
-                        selectedOK = 0;
-                        digitSelectionBox.status = 0;
-                        flashing = 0;
-                    }
-                    
-                }
+                changeBacklightPos(&selectedOK);
+                flashing = 0;
+                topButtonPressDuration++;
             }
-            if(topButtonPressDuration <= 5) topButtonPressDuration++;
         }
         else
         {
@@ -335,18 +346,10 @@ void setCurrentTimeMode()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            
-            if(flashing == 0)
-            {
-                flashing = 1;
-            }
-            else
-            {
-                flashing = 0;
-            }
+            if(flashing == 0) flashing = 1;
+            else flashing = 0;
         }
     }
-    
 }
 
 void main_screen()
@@ -357,6 +360,9 @@ void main_screen()
     /* Variable Declaration */
     int64_t current_time = 0;
     int64_t last_time = 0;
+
+    int bottomButtonPressDuration = 0;
+    int topButtonPressDuration = 0;
 
     while (1)
     {
@@ -379,31 +385,33 @@ void main_screen()
         if(gpio_get_level(0) == 0)
         {
             // this can be active when button is pressed, and only active once
-            if(buttonPressDuration == 0) menuStatusChange();
-            if(buttonPressDuration <= 5) buttonPressDuration++;
+            if(bottomButtonPressDuration == 0) 
+            {
+                menuStatusChange();
+                bottomButtonPressDuration++;
+            }
         }
         else
         {
-            if(buttonPressDuration != 0) buttonPressDuration = 0;
+            if(bottomButtonPressDuration != 0) bottomButtonPressDuration = 0;
         }
 
         // top(right) button pressed event
         if(gpio_get_level(35) == 0)
         {
-            if(menuSelectionBox.status == 0)  // set current time mode
+            if(menuSelectionBox.status == 0)
             {
-                // printf("Left Box\n");
+                // set current time mode
                 setCurrentTimeMode();
-                buttonPressDuration = 10;
+                bottomButtonPressDuration = 20;
                 continue;
             }
-            else  // set alarm time mode
+            else
             {
-                // printf("Right Box\n");
+                // set alarm time mode
+
             }
-            
         }
-        
         current_time = esp_timer_get_time() / (int64_t) 1000000;
 
         if(current_time != last_time)
