@@ -202,7 +202,7 @@ void showAlarmTime()
 
 void showMenu()
 {
-    draw_rectangle(menuSelectionBox.x_pos, menuSelectionBox.y_pos, menuSelectionBox.weight, menuSelectionBox.height, rgbToColour(0, 172, 13));
+    draw_rectangle(menuSelectionBox.x_pos, menuSelectionBox.y_pos, menuSelectionBox.weight, menuSelectionBox.height, rgbToColour(100, 100, 100));
 
     setFont(FONT_SMALL);
     snprintf(buffer, 20, "Set Current Time");
@@ -507,7 +507,7 @@ void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
     
 }
 
-void main_screen()
+void main_function()
 {
     initTime();
     init_menuSelectionBox();
@@ -515,17 +515,35 @@ void main_screen()
     /* Variable Declaration */
     int64_t current_time = 0;
     int64_t last_time = 0;
-
-    int buttonPressDuration = 0;
+    int64_t flashing_counter_start = 0;
+    int64_t flashing_counter_stop = 0;
+    int bottomButtonPressDuration = 0;
+    int topButtonPressDuration = 0;
+    int alarmGoesOff = 0;
+    int backLightFlashing = 0;
 
     while (1)
     {
         last_time = esp_timer_get_time() / (int64_t) 1000000;
+        flashing_counter_start = esp_timer_get_time() / (int64_t) 300000;
         cls(rgbToColour(0, 0, 0));
         setFontColour(255, 255, 255);
 
         /* Anything need to draw on the screen should write here 00:00:00*/
         /*** START ***/
+        if(alarmGoesOff == 1)
+        {
+            if(backLightFlashing == 0)
+            {
+                draw_rectangle(0, 0, display_width, display_height, rgbToColour(255, 0, 0));
+            }
+            else
+            {
+                draw_rectangle(0, 0, display_width, display_height, rgbToColour(0, 255, 5));
+            }
+            
+        }
+
         showCurrentTime();
         showAlarmTime();
         showMenu();
@@ -536,44 +554,78 @@ void main_screen()
         wait_frame();
 
         current_time = esp_timer_get_time() / (int64_t) 1000000;
+        flashing_counter_stop = esp_timer_get_time() / (int64_t) 300000;
 
         // bottom(left) button pressed event
         if(gpio_get_level(0) == 0)
         {
-            // this can be active when button is pressed, and only active once
-            if(buttonPressDuration == 0) 
+            if(bottomButtonPressDuration == 0)
             {
-                menuStatusChange();
-                buttonPressDuration++;
+                // this can be active when button is pressed, and only active once
+                if(alarmGoesOff == 1) alarmGoesOff = 0;
+                else menuStatusChange();
+                bottomButtonPressDuration++;
             }
         }
         else
         {
-            if(buttonPressDuration != 0) buttonPressDuration = 0;
+            if(bottomButtonPressDuration != 0) bottomButtonPressDuration = 0;
         }
 
         // top(right) button pressed event
         if(gpio_get_level(35) == 0)
         {
-            if(menuSelectionBox.status == 0)
+            if(topButtonPressDuration == 0)
             {
-                // set current time mode
-                setCurrentTimeMode();
+                if(alarmGoesOff == 1)
+                {
+                    alarmGoesOff = 0;
+                    topButtonPressDuration++;
+                }
+                else if(menuSelectionBox.status == 0)
+                {
+                    // set current time mode
+                    setCurrentTimeMode();
+                }
+                else
+                {
+                    // set alarm time mode
+                    setAlarmTimeMode(&current_time, &last_time);
+                }
+                bottomButtonPressDuration = 20;
+                continue;
             }
-            else
-            {
-                // set alarm time mode
-                setAlarmTimeMode(&current_time, &last_time);
-            }
-            buttonPressDuration = 20;
-            continue;
         }
+        else
+        {
+            if(topButtonPressDuration != 0) topButtonPressDuration = 0;
+        }
+        
         
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
             incrementTime();
             clockLogic();
+
+            // If current time is equal alarm time
+            if(myClock.hour == myAlarmClock.hour && myClock.minute == myAlarmClock.minute)
+            {
+                if(myClock.isAm == myAlarmClock.isAm)
+                {
+                    if(myClock.second == 0)
+                    {
+                        // printf("Alarm goes off!\n");
+                        alarmGoesOff = 1;
+                    }
+                }
+            }
+        }
+        if(flashing_counter_start != flashing_counter_stop && alarmGoesOff == 1)
+        {
+            // printf("%lld\n", temp2);
+            if(backLightFlashing == 0) backLightFlashing = 1;
+            else backLightFlashing = 0;
         }
     }
 }
@@ -596,5 +648,5 @@ void app_main()
 
     set_orientation(0);
 
-    main_screen();
+    main_function();
 }
