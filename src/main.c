@@ -1,5 +1,17 @@
 /* Assignment 3 for 159.236 */
 
+/* Option 1 - Description
+Notice:
+1. Once in the "Set Current Time" mode, the seconds digits will reset to zero.
+2. When program first start, the current time and alarm time will all set to zero, but the alarm will not work until current time equal alarm time again
+3. Also the alarm goes off, only when current time is equal to alarm time and the seconds digits of current time is equal to zero.
+   For example, current time=03:12:00am    alarm time=03:12am, the alarm will goes off
+                current time=03:12:01am    alarm time=03:12am, the alarm will not goes off
+4. In "Set Alarm Time" mode, the current time is still going.
+
+*/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -312,7 +324,7 @@ void setCurrentTimeMode()
     init_digitSelectionBox_Clock();
 
     /* Variable Declaration */
-    int8_t flashing = 1;
+    // int8_t flashing = 1;
     int64_t current_time = 0;
     int64_t last_time = 0;
 
@@ -332,13 +344,9 @@ void setCurrentTimeMode()
 
         /* Anything need to draw on the screen should write here */
         /*** START ***/
-        if(flashing == 1)
-        {
-            // Backlight of hours digit and minutes digit flashing every one second
-            // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable and flashing
-            if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
-            if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
-        }
+        // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable
+        if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
+        if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
         showCurrentTime();
 
         setFont(FONT_UBUNTU16);
@@ -379,7 +387,7 @@ void setCurrentTimeMode()
             if(topButtonPressDuration == 0)
             {
                 changeBacklightPos(&selectedOK);
-                flashing = 0;
+                // flashing = 0;
                 topButtonPressDuration++;
             }
         }
@@ -393,8 +401,8 @@ void setCurrentTimeMode()
         if(current_time != last_time)
         {
             // printf("current time: %lld\n", current_time);
-            if(flashing == 0) flashing = 1;
-            else flashing = 0;
+            // if(flashing == 0) flashing = 1;
+            // else flashing = 0;
         }
     }
 }
@@ -403,7 +411,7 @@ void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
 {
     init_digitSelectionBox_Alarm();
 
-    int8_t flashing = 1;
+    // int8_t flashing = 1;
 
     int bottomButtonPressDuration = 20;
     int topButtonPressDuration = 20;
@@ -420,13 +428,10 @@ void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
 
         /* Anything need to draw on the screen should write here */
         /*** START ***/
-        if(flashing == 1)
-        {
-            // Backlight of hours digit and minutes digit flashing every one second
-            // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable and flashing
-            if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
-            if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
-        }
+        // If user hover the OK button, then backlight on the digit should hide and backlight of OK option should visiable and flashing
+        if(selectedOK == 1) draw_rectangle(204, 114, 26, 17, rgbToColour(0, 172, 13));
+        if(selectedOK == 0) draw_rectangle(digitSelectionBox.x_pos, digitSelectionBox.y_pos, digitSelectionBox.weight, digitSelectionBox.height, rgbToColour(98, 102, 109));
+
         setFont(FONT_DEJAVU24);
         snprintf(buffer, 20, "%02d:%02d", myAlarmClock.hour, myAlarmClock.minute);
         print_xy(buffer, (display_width / 2) - 35, (display_height / 2) - 10);
@@ -485,7 +490,7 @@ void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
             if(topButtonPressDuration == 0)
             {
                 changeBacklightPos(&selectedOK);
-                flashing = 0;
+                // flashing = 0;
                 topButtonPressDuration++;
             }           
         }
@@ -500,8 +505,8 @@ void setAlarmTimeMode(int64_t *current_time, int64_t *last_time)
             // printf("current time: %lld\n", current_time);
             incrementTime();
             clockLogic();
-            if(flashing == 0) flashing = 1;
-            else flashing = 0;
+            // if(flashing == 0) flashing = 1;
+            // else flashing = 0;
         }
     }
     
@@ -547,7 +552,6 @@ void main_function()
         showCurrentTime();
         showAlarmTime();
         showMenu();
-        
         /*** END!!! ***/
 
         send_frame();
